@@ -15,3 +15,13 @@ For each module you can edit the **module.json** file, and modify:
   "version": "0.0.6",
 
 For more advanced informations: https://docs.microsoft.com/en-us/azure/iot-edge/tutorial-csharp-module
+
+## Modules included in this repo:
+
+- MQTT Client
+Subcribe to Topics from a MQTT Broker, to receive and forward messages to Azure IoT Hub
+
+- Simple Dashboard
+Visualize data that are received by the MQTT Client module and sent to Azure IoT Hub 
+
+![Dashboard](/doc/dashboard.png)
