@@ -12,7 +12,9 @@ var io = require('socket.io')(http);
 // We do not expose the internal module paths to our website.
 app.use('/scripts', express.static(__dirname + '/node_modules/highcharts/'));
 app.use('/themes', express.static(__dirname + '/node_modules/highcharts/themes/'));
- 
+app.use('/css', express.static(__dirname + '/css/'));
+app.use('/js', express.static(__dirname + '/js/')); 
+
 // Redirect to the default page
 app.get('/', function(req, res){
   res.sendFile(__dirname + '/index.html');

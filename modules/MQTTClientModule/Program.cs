@@ -28,7 +28,8 @@ namespace MQTTClientModule
     {
         static int counter;
 
-        public static string MQTT_BROKER_ADDRESS = "192.168.0.32";
+        public static string MQTT_BROKER_ADDRESS = "192.168.43.134";
+        
         public static int MQTT_BROKER_PORT = 4321;
 
         //public static int temperatureThreshold { get; set; } = 25;
@@ -160,7 +161,7 @@ namespace MQTTClientModule
             tlsOptions.IgnoreCertificateRevocationErrors = false;
 
             var options = new MqttClientOptionsBuilder()
-            .WithClientId("IoTEdgeModule")
+            .WithClientId(clientId)
             .WithTcpServer(MQTT_BROKER_ADDRESS, MQTT_BROKER_PORT)
             .WithTls(tlsOptions)
             .Build();
@@ -170,11 +171,11 @@ namespace MQTTClientModule
             return client;
         }
 
-        public static async Task PublishMQTTMessage(int value)
+        public static async Task PublishMQTTMessage(string payload)
         {
             var message = new MqttApplicationMessageBuilder()
-                .WithTopic("/Test1/temperature")
-                .WithPayload(value.ToString())
+                .WithTopic("/Test1/feedback")
+                .WithPayload(payload)
                 .WithExactlyOnceQoS()
                 .WithRetainFlag()
                 .Build();
@@ -218,6 +219,11 @@ namespace MQTTClientModule
                 //     TimeCreated = DateTime.UtcNow
                 // };
 
+                if (messageBody.Machine.Temperature == 100.0)
+                {
+                    await PublishMQTTMessage(messageBody.TimeCreated.ToLongTimeString());
+                }
+
                 string dataBuffer = JsonConvert.SerializeObject(messageBody);
                 var message = new Message(Encoding.UTF8.GetBytes(dataBuffer));
                 message.Properties.Add("DeviceId", "Device1");
@@ -245,6 +251,7 @@ namespace MQTTClientModule
     }
     class Machine
     {
+        public string Id {get; set;}
         public double Temperature {get; set;}
         public double Pressure {get; set;}         
     }
