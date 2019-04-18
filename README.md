@@ -1,8 +1,8 @@
 # IoT-Edge-Modules
 My repository including MQTT and Dashboard modules
 
-##How to setup the environment:
-- ###add .env file
+## How to setup the environment:
+- add .env file
 At the root level of the solution (same level of the deployment.template.json) add a .env file including:
 
   CONTAINER_REGISTRY_USERNAME_edgemodules=<The-name-of-your-registry>
