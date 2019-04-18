@@ -18,10 +18,10 @@ For more advanced informations: https://docs.microsoft.com/en-us/azure/iot-edge/
 
 ## Modules included in this repo:
 
-- MQTT Client
+- MQTT Client  
 Subcribe to Topics from a MQTT Broker, to receive and forward messages to Azure IoT Hub
 
-- Simple Dashboard
+- Simple Dashboard  
 Visualize data that are received by the MQTT Client module and sent to Azure IoT Hub 
 
 ![Dashboard](/doc/dashboard.png)
