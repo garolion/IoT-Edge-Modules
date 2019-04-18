@@ -10,9 +10,9 @@
             "minDockerVersion": "v1.25",
             "loggingOptions": "",
             "registryCredentials": {
-              "afoedgemodules": {
-                "username": "$CONTAINER_REGISTRY_USERNAME_afoedgemodules",
-                "password": "$CONTAINER_REGISTRY_PASSWORD_afoedgemodules",
+              "edgemodules": {
+                "username": "$CONTAINER_REGISTRY_USERNAME_edgemodules",
+                "password": "$CONTAINER_REGISTRY_PASSWORD_edgemodules",
                 "address": "afoedgemodules.azurecr.io"
               }
             }
@@ -122,6 +122,9 @@
     },
     "MQTTClientModule": {
       "properties.desired":{
+          "Temp_Threshold":100,
+          "MQTT_BROKER_ADDRESS":"192.168.0.32",
+          "MQTT_BROKER_PORT":4321,
           "NBDevices":2,
           "Device1_ID":"Dev367",
           "Device1_Schema":"DefaultEngine",
@@ -129,8 +132,8 @@
           "Device1_FeedbackTopic":"Dev367/feedback",
           "Device2_ID":"Dev7854",
           "Device2_Schema":"DefaultEngine",
-          "Device2_DataTopic":"Dev367/data",
-          "Device2_FeedbackTopic":"Dev367/feedback"
+          "Device2_DataTopic":"Dev7854/data",
+          "Device2_FeedbackTopic":"Dev7854/feedback"
       }
     }
   }

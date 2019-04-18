@@ -26,15 +26,13 @@ namespace MQTTClientModule
 
     class Program
     {
-        static int counter;
-
+        static int Temp_Threshold { get; set; } = 25;
         public static string MQTT_BROKER_ADDRESS = "192.168.43.134";
-        
         public static int MQTT_BROKER_PORT = 4321;
-
-        //public static int temperatureThreshold { get; set; } = 25;
-
         public static IMqttClient MqttClient { get; set; } = null;
+
+        public static int NBDevices = 0;
+        public static List<DeviceConfig> Devices { get; set; }
 
         static void Main(string[] args)
         {
@@ -79,9 +77,6 @@ namespace MQTTClientModule
 
             // Attach a callback for updates to the module twin's desired properties.
             await ioTHubModuleClient.SetDesiredPropertyUpdateCallbackAsync(OnDesiredPropertiesUpdate, null);
-
-            Console.WriteLine("Reading Messages");
-            await Task.Run(ReadMQTTMessages);
         }
 
         static Task OnDesiredPropertiesUpdate(TwinCollection desiredProperties, object userContext)
@@ -90,13 +85,84 @@ namespace MQTTClientModule
             {
                 Console.WriteLine($"{DateTime.Now.ToString()} - Desired property change:");
                 Console.WriteLine(JsonConvert.SerializeObject(desiredProperties));
-
-               //TODO
-               // récupération device configs
-               // réinitialisation des liens avec MQTT Broker
            
-                // if (desiredProperties["TemperatureThreshold"]!=null)
-                //     temperatureThreshold = desiredProperties["TemperatureThreshold"];
+                if (desiredProperties.Contains("Temp_Threshold") && desiredProperties["Temp_Threshold"]!=null)
+                {
+                    if(int.TryParse(desiredProperties["Temp_Threshold"].ToString(), out int ts))
+                    {
+                        Temp_Threshold = ts;
+                        Console.WriteLine($"value updated for Property 'Temp_Threshold': {Temp_Threshold}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Check the property Temp_Threshold ({desiredProperties["Temp_Threshold"]}) in the Module Twin. It must be an int");
+                    }
+                }
+
+                if (desiredProperties.Contains("MQTT_BROKER_ADDRESS") && desiredProperties["MQTT_BROKER_ADDRESS"]!=null)
+                {
+                    MQTT_BROKER_ADDRESS = desiredProperties["MQTT_BROKER_ADDRESS"];
+                    Console.WriteLine($"value updated for Property 'MQTT_BROKER_ADDRESS': {MQTT_BROKER_ADDRESS}");
+                }
+
+                if (desiredProperties.Contains("MQTT_BROKER_PORT") && desiredProperties["MQTT_BROKER_PORT"]!=null)
+                {
+                    if(int.TryParse(desiredProperties["MQTT_BROKER_PORT"].ToString(), out int port))
+                    {
+                        MQTT_BROKER_PORT = port;
+                        Console.WriteLine($"value updated for Property 'MQTT_BROKER_PORT': {MQTT_BROKER_PORT}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Check the property MQTT_BROKER_PORT ({desiredProperties["MQTT_BROKER_PORT"]}) in the Module Twin. It must be an int");
+                    }
+                }
+
+                if (desiredProperties.Contains("NBDevices") && desiredProperties["NBDevices"]!=null)
+                {
+                    if(int.TryParse(desiredProperties["NBDevices"].ToString(), out int nb))
+                    {
+                        NBDevices = nb;
+                        Console.WriteLine($"value updated for Property 'NBDevices': {NBDevices}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Check the property NBDevices ({desiredProperties["NBDevices"]}) in the Module Twin. It must be an int");
+                    }
+                }
+
+                Devices = new List<DeviceConfig>();
+                for (int i=1; i<=NBDevices; i++)
+                {
+                    string deviceIdKey = $"Device{i}_ID";
+                    string deviceSchemaKey = $"Device{i}_Schema";
+                    string deviceDataTopicKey = $"Device{i}_DataTopic";
+                    string deviceFeedbackTopicKey = $"Device{i}_FeedbackTopic";
+                    
+                    DeviceConfig deviceConfig = new DeviceConfig();
+
+                    if (desiredProperties.Contains(deviceIdKey) && desiredProperties[deviceIdKey]!=null)
+                    {
+                        deviceConfig.ID = desiredProperties[deviceIdKey];
+                    }
+                    if (desiredProperties.Contains(deviceSchemaKey) && desiredProperties[deviceSchemaKey]!=null)
+                    {
+                        deviceConfig.Schema = desiredProperties[deviceSchemaKey];
+                    }
+                    if (desiredProperties.Contains(deviceDataTopicKey) && desiredProperties[deviceDataTopicKey]!=null)
+                    {
+                        deviceConfig.DataTopic = desiredProperties[deviceDataTopicKey];
+                    }
+                    if (desiredProperties.Contains(deviceFeedbackTopicKey) && desiredProperties[deviceFeedbackTopicKey]!=null)
+                    {
+                        deviceConfig.FeedbackTopic = desiredProperties[deviceFeedbackTopicKey];
+                    }
+                    Devices.Add(deviceConfig);
+                    Console.WriteLine($"Device added: {deviceConfig.ID}");                    
+                }
+                
+                Console.WriteLine("Subscribing to Topics");
+                Task.Run(SubscribeMQTTTopicsAsync).Wait();
             }
             catch (AggregateException ex)
             {
@@ -113,39 +179,6 @@ namespace MQTTClientModule
             }
             return Task.CompletedTask;
         }
-
-        public static async Task ReadMQTTMessages()
-        {
-            // var client = new MqttFactory().CreateMqttClient();
-
-            // X509Certificate ca_crt = new X509Certificate("certs/ca.crt");
-
-            // var tlsOptions = new MqttClientOptionsBuilderTlsParameters();
-            // tlsOptions.SslProtocol = System.Security.Authentication.SslProtocols.Tls12;
-            // tlsOptions.Certificates = new List<IEnumerable<byte>>() { ca_crt.Export(X509ContentType.Cert).Cast<byte>() };
-            // tlsOptions.UseTls = true;
-            // tlsOptions.AllowUntrustedCertificates = true;
-            // tlsOptions.IgnoreCertificateChainErrors = false;
-            // tlsOptions.IgnoreCertificateRevocationErrors = false;
-
-            // var options = new MqttClientOptionsBuilder()
-            // .WithClientId("IoTEdgeModule")
-            // .WithTcpServer(MQTT_BROKER_ADDRESS, MQTT_BROKER_PORT)
-            // .WithTls(tlsOptions)
-            // .Build();
-
-            // client.ApplicationMessageReceived += async (sender, eventArgs) => { await Client1_ApplicationMessageReceived(sender, eventArgs); };
-            // await client.ConnectAsync(options);
-
-            // if (MqttClient == null | !MqttClient.IsConnected)
-            // {
-                MqttClient = await ConnectAsync("IoTEdgeModule");
-                MqttClient.ApplicationMessageReceived += async (sender, eventArgs) => { await Client1_ApplicationMessageReceived(sender, eventArgs); };
-            // }
-            // client.ApplicationMessageReceived += Client1_ApplicationMessageReceived;
-            await MqttClient.SubscribeAsync("/Test1/temperature",MqttQualityOfServiceLevel.ExactlyOnce);
-        }
-
 
         public static async Task<IMqttClient> ConnectAsync(string clientId)
         {
@@ -171,10 +204,23 @@ namespace MQTTClientModule
             return client;
         }
 
-        public static async Task PublishMQTTMessage(string payload)
+        public static async Task SubscribeMQTTTopicsAsync()
+        {
+            MqttClient = await ConnectAsync("IoTEdgeModule");
+            MqttClient.ApplicationMessageReceived += async (sender, eventArgs) => { await Client1_ApplicationMessageReceived(sender, eventArgs); };
+
+            foreach(DeviceConfig deviceConfig in Devices)
+            {
+                // await MqttClient.SubscribeAsync("/Test1/temperature",MqttQualityOfServiceLevel.ExactlyOnce);
+                await MqttClient.SubscribeAsync(deviceConfig.DataTopic, MqttQualityOfServiceLevel.ExactlyOnce);
+                Console.WriteLine($"Subscribed to Topic: {deviceConfig.DataTopic}");
+            }
+        }
+
+        public static async Task PublishMQTTMessageAsync(DeviceConfig deviceConfig, string payload)
         {
             var message = new MqttApplicationMessageBuilder()
-                .WithTopic("/Test1/feedback")
+                .WithTopic(deviceConfig.FeedbackTopic)
                 .WithPayload(payload)
                 .WithExactlyOnceQoS()
                 .WithRetainFlag()
@@ -186,8 +232,7 @@ namespace MQTTClientModule
             }
 
             await MqttClient.PublishAsync(message);
-
-            Console.WriteLine("Message sent");
+            Console.WriteLine($"Message '{payload}' sent to {deviceConfig.FeedbackTopic}");
         }
 
 
@@ -200,40 +245,30 @@ namespace MQTTClientModule
             
             try
             {
-                var messageBody = JsonConvert.DeserializeObject<MessageBody>(payload);
+                string topic = eventArgs.ApplicationMessage.Topic;
+                DeviceConfig deviceConfig = Devices.Find(d => d.DataTopic.Equals(topic));
 
-                // int temperature = int.Parse(Encoding.UTF8.GetString(eventArgs.ApplicationMessage.Payload)); 
-
-                // var messageBody = new MessageBody
-                // {
-                //     Machine = new Machine
-                //     {
-                //         Temperature = temperature,
-                //         Pressure = 25,
-                //     },
-                //     Ambient = new Ambient
-                //     {
-                //         Temperature = temperature - 5,
-                //         Humidity = 80
-                //     },
-                //     TimeCreated = DateTime.UtcNow
-                // };
-
-                if (messageBody.Machine.Temperature == 100.0)
+                string dataBuffer = "Unkown format";
+                if (deviceConfig.Schema.Equals("DefaultEngine"))
                 {
-                    await PublishMQTTMessage(messageBody.TimeCreated.ToLongTimeString());
+                    var messageBody = JsonConvert.DeserializeObject<MessageBody>(payload);
+
+                    if (messageBody.Machine.Temperature >= Temp_Threshold)
+                    {
+                        Console.WriteLine("Alert: over Temp_Threshold");
+                        await PublishMQTTMessageAsync(deviceConfig, messageBody.TimeCreated.ToLongTimeString());
+                    }
+
+                    dataBuffer = JsonConvert.SerializeObject(messageBody);
                 }
 
-                string dataBuffer = JsonConvert.SerializeObject(messageBody);
                 var message = new Message(Encoding.UTF8.GetBytes(dataBuffer));
-                message.Properties.Add("DeviceId", "Device1");
 
                 //TODO: package sous forme de propriété
                 MqttTransportSettings mqttSetting = new MqttTransportSettings(TransportType.Mqtt_Tcp_Only);
                 ITransportSettings[] settings = { mqttSetting };
                 ModuleClient ioTHubModuleClient = await ModuleClient.CreateFromEnvironmentAsync(settings);
                 await ioTHubModuleClient.OpenAsync();
-
                 await ioTHubModuleClient.SendEventAsync("output1", message);
             }
             catch(Exception ex)
@@ -259,5 +294,13 @@ namespace MQTTClientModule
     {
         public double Temperature {get; set;}
         public int Humidity {get; set;}         
+    }
+
+    class DeviceConfig
+    {
+        public string ID {get; set;}
+        public String Schema {get; set;}     
+        public String DataTopic {get; set;}     
+        public String FeedbackTopic {get; set;}         
     }
 }

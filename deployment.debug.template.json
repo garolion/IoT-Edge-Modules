@@ -10,9 +10,9 @@
             "minDockerVersion": "v1.25",
             "loggingOptions": "",
             "registryCredentials": {
-              "afoedgemodules": {
-                "username": "$CONTAINER_REGISTRY_USERNAME_afoedgemodules",
-                "password": "$CONTAINER_REGISTRY_PASSWORD_afoedgemodules",
+              "edgemodules": {
+                "username": "$CONTAINER_REGISTRY_USERNAME_edgemodules",
+                "password": "$CONTAINER_REGISTRY_PASSWORD_edgemodules",
                 "address": "afoedgemodules.azurecr.io"
               }
             }
