@@ -11,7 +11,7 @@ At the root level of the solution (same level of the deployment.template.json) a
 - (optional), edit module settings 
 For each module you can edit the module.json file, and modify:
 
-  "repository": "afoedgemodules.azurecr.io/dashboardmodule"
+  "repository": "afoedgemodules.azurecr.io/dashboardmodule"  
   "version": "0.0.6",
 
 For more advanced informations: https://docs.microsoft.com/en-us/azure/iot-edge/tutorial-csharp-module
