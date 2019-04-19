@@ -28,7 +28,7 @@ To setup this module :
   * once your Mosquitto instance configured, update the Module Twins accordingly:
     
       "MQTTClientModule": {  
-      "properties.desired":{  
+        "properties.desired":{  
           "Temp_Threshold":100,  
           "MQTT_BROKER_ADDRESS":"192.168.0.32",  
           "MQTT_BROKER_PORT":4321,  
@@ -41,6 +41,7 @@ To setup this module :
           "Device2_Schema":"DefaultEngine",  
           "Device2_DataTopic":"Dev7854/data",  
           "Device2_FeedbackTopic":"Dev7854/feedback"  
+        }
       }  
   
 - Simple Dashboard  
