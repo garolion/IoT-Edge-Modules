@@ -18,7 +18,7 @@ For more advanced informations: https://docs.microsoft.com/en-us/azure/iot-edge/
 
 ## Modules included in this repo:
 
-- MQTT Client  
+### MQTT Client  
 Subscribe to Topics from a MQTT Broker, to receive and forward messages to Azure IoT Hub
 
 To setup this module :
