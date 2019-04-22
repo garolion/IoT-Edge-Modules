@@ -44,6 +44,8 @@ To setup this module :
         }
       }  
   
+  * Finally update the certificate used by the module to authenticate against Mosquitto (CA.crt file in the folder /certs)  
+  
 - Simple Dashboard  
 Visualize data that are received by the MQTT Client module and sent to Azure IoT Hub 
 
