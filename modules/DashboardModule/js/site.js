@@ -1,5 +1,6 @@
 $(function () {
     var socket = io();
+    var NBDevices;
 
     var chartAllDevices = Highcharts.chart('chartAllDevices', {
       chart: {
@@ -191,6 +192,13 @@ $(function () {
     socket.on('iot message', function(msg){
         $('#messages').append($('<li>').text(msg));
 
+        try {
+          $('#messages').append($('<li>').text('NB Devices from Twins: ' + NBDevices));
+
+        } catch (err) {
+          $('#messages').append($('<li>').text('Error'));
+        }
+ 
         var json = $.parseJSON(msg);
         var x = (new Date(json.TimeCreated)).getTime(); // UTC time
 
@@ -208,5 +216,11 @@ $(function () {
         }
 
         seriesTemperature.addPoint([x, json.Machine.Temperature], true, true);
+    });
+
+    socket.on('config', function(config){
+
+      var json = $.parseJSON(config);
+      NBDevices = json.NBDevices;
     });
   });

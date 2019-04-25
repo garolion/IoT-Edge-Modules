@@ -9,14 +9,33 @@ var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
 
+var _client;
+
 // We do not expose the internal module paths to our website.
 app.use('/scripts', express.static(__dirname + '/node_modules/highcharts/'));
 app.use('/themes', express.static(__dirname + '/node_modules/highcharts/themes/'));
 app.use('/css', express.static(__dirname + '/css/'));
 app.use('/js', express.static(__dirname + '/js/')); 
 
-// Redirect to the default page
+// Before we redirect to dashboard page, we query module twins to apply a potential config update 
 app.get('/', function(req, res){
+  console.log('Page refresh');
+
+  _client.getTwin(function (err, twin) {
+    if (err) {
+        console.error('Error getting module twin: ' + err.message);
+    } else {
+        twin.on('properties.desired', function(props) {
+
+          let config = {  
+            NBDevices: props.NBDevices
+          };
+          let data = JSON.stringify(config); 
+          io.emit('config', data);
+        });
+    }
+});
+
   res.sendFile(__dirname + '/index.html');
 });
 
@@ -29,7 +48,8 @@ http.listen(1234, function(){
 Client.fromEnvironment(Transport, function (err, client) {
   if (err) {
     throw err;
-  } else {
+  } 
+  else {
     client.on('error', function (err) {
       throw err;
     });
@@ -38,8 +58,11 @@ Client.fromEnvironment(Transport, function (err, client) {
     client.open(function (err) {
       if (err) {
         throw err;
-      } else {
+      } 
+      else {
         console.log('IoT Hub module client initialized');
+
+        _client = client;
 
         // Act on input messages to the module.
         client.on('inputMessage', function (inputName, msg) {

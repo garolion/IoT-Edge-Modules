@@ -27,7 +27,7 @@ namespace MQTTClientModule
     class Program
     {
         static int Temp_Threshold { get; set; } = 25;
-        public static string MQTT_BROKER_ADDRESS = "192.168.43.134";
+        public static string MQTT_BROKER_ADDRESS = "dgebuntu";
         public static int MQTT_BROKER_PORT = 4321;
         public static IMqttClient MqttClient { get; set; } = null;
 
@@ -186,13 +186,17 @@ namespace MQTTClientModule
             X509Certificate ca_crt = new X509Certificate("certs/ca.crt");
 
             var tlsOptions = new MqttClientOptionsBuilderTlsParameters();
-            tlsOptions.SslProtocol = System.Security.Authentication.SslProtocols.Tls12;
+            tlsOptions.SslProtocol = System.Security.Authentication.SslProtocols.Tls;
             tlsOptions.Certificates = new List<IEnumerable<byte>>() { ca_crt.Export(X509ContentType.Cert).Cast<byte>() };
             tlsOptions.UseTls = true;
             tlsOptions.AllowUntrustedCertificates = true;
             tlsOptions.IgnoreCertificateChainErrors = false;
             tlsOptions.IgnoreCertificateRevocationErrors = false;
 
+            Console.WriteLine("MQTT_BROKER_ADDRESS: {0}", MQTT_BROKER_ADDRESS);
+            Console.WriteLine("MQTT_BROKER_PORT: {0}", MQTT_BROKER_PORT);
+
+            // TLS support on port 4321 (8883 already in use with Azure IoT Edge)
             var options = new MqttClientOptionsBuilder()
             .WithClientId(clientId)
             .WithTcpServer(MQTT_BROKER_ADDRESS, MQTT_BROKER_PORT)
