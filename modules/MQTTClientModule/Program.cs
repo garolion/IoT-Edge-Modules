@@ -26,8 +26,9 @@ namespace MQTTClientModule
 
     class Program
     {
-        static int Temp_Threshold { get; set; } = 25;
-        public static string MQTT_BROKER_ADDRESS = "dgebuntu";
+        static ModuleClient ioTHubModuleClient;
+        static int Temp_Threshold { get; set; } = 100;
+        public static string MQTT_BROKER_ADDRESS = "VMUbuntu";
         public static int MQTT_BROKER_PORT = 4321;
         public static IMqttClient MqttClient { get; set; } = null;
 
@@ -64,10 +65,10 @@ namespace MQTTClientModule
             MqttTransportSettings mqttSetting = new MqttTransportSettings(TransportType.Mqtt_Tcp_Only);
             ITransportSettings[] settings = { mqttSetting };
 
-            Console.WriteLine("In Init()");
+            Console.WriteLine("Initializing Module");
 
             // Open a connection to the Edge runtime
-            ModuleClient ioTHubModuleClient = await ModuleClient.CreateFromEnvironmentAsync(settings);
+            ioTHubModuleClient = await ModuleClient.CreateFromEnvironmentAsync(settings);
             await ioTHubModuleClient.OpenAsync();
             Console.WriteLine("IoT Hub module client initialized.");
 
@@ -77,6 +78,14 @@ namespace MQTTClientModule
 
             // Attach a callback for updates to the module twin's desired properties.
             await ioTHubModuleClient.SetDesiredPropertyUpdateCallbackAsync(OnDesiredPropertiesUpdate, null);
+
+            // Attach a callback for direct Method 'Alert'
+            await ioTHubModuleClient.SetMethodHandlerAsync("Alert", AlertAsync, ioTHubModuleClient);
+
+            // Register a callback for messages that are received by the module.
+            await ioTHubModuleClient.SetInputMessageHandlerAsync("input1", ManageAlertsAsync, ioTHubModuleClient);
+
+            Console.WriteLine("Module Initialized");
         }
 
         static Task OnDesiredPropertiesUpdate(TwinCollection desiredProperties, object userContext)
@@ -180,13 +189,78 @@ namespace MQTTClientModule
             return Task.CompletedTask;
         }
 
+        public static async Task<MethodResponse> AlertAsync(MethodRequest methodRequest, object moduleClient)
+        {
+            try 
+            {
+                Console.WriteLine("In AlertAsync");
+                var data = Encoding.UTF8.GetString(methodRequest.Data);
+                Console.WriteLine("Received data: " + data.ToString());
+
+                var messageBody = new MessageBody();
+                DeviceConfig deviceConfig = Devices.Find(d => d.ID.Equals("Dev367"));
+                await PublishMQTTMessageAsync(deviceConfig, messageBody.TimeCreated.ToLongTimeString(), "AlertingCloud");
+
+                var methodResponse = new MethodResponse(Encoding.UTF8.GetBytes("{\"status\": \"ok\"}"), 200);
+                return await Task.FromResult(methodResponse);
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                Console.WriteLine(ex.StackTrace);
+                return await Task.FromResult(new MethodResponse(500));
+            } 
+        }
+
+        static async Task<MessageResponse> ManageAlertsAsync(Message message, object userContext)
+        {
+            try
+            {
+                Console.WriteLine($"in ManageAlertsAsync");
+                
+                ModuleClient moduleClient = (ModuleClient)userContext;
+                var messageBytes = message.GetBytes();
+                var messageString = Encoding.UTF8.GetString(messageBytes);
+                Console.WriteLine($"Message received from Alerting module: [{messageString}]");
+
+                //send MQTT message
+                string deviceId = message.Properties["DeviceId"];
+                DeviceConfig deviceConfig = Devices.Find(d => d.ID.Equals(deviceId));
+
+                var messageBody = JsonConvert.DeserializeObject<MessageBody>(messageString);
+                await PublishMQTTMessageAsync(deviceConfig, messageBody.TimeCreated.ToLongTimeString(), "AlertingModule");
+
+                return MessageResponse.Completed;
+            }
+            catch (AggregateException ex)
+            {
+                foreach (Exception exception in ex.InnerExceptions)
+                {
+                    Console.WriteLine();
+                    Console.WriteLine("Error in sample: {0}", exception);
+                }
+                // Indicate that the message treatment is not completed.
+                var moduleClient = (ModuleClient)userContext;
+                return MessageResponse.Abandoned;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine();
+                Console.WriteLine("Error in sample: {0}", ex.Message);
+                // Indicate that the message treatment is not completed.
+                ModuleClient moduleClient = (ModuleClient)userContext;
+                return MessageResponse.Abandoned;
+            }
+        }
+
         public static async Task<IMqttClient> ConnectAsync(string clientId)
         {
+            Console.WriteLine("In ConnectAsync");
             var client = new MqttFactory().CreateMqttClient();
             X509Certificate ca_crt = new X509Certificate("certs/ca.crt");
 
             var tlsOptions = new MqttClientOptionsBuilderTlsParameters();
-            tlsOptions.SslProtocol = System.Security.Authentication.SslProtocols.Tls;
+            tlsOptions.SslProtocol = System.Security.Authentication.SslProtocols.Tls11;
             tlsOptions.Certificates = new List<IEnumerable<byte>>() { ca_crt.Export(X509ContentType.Cert).Cast<byte>() };
             tlsOptions.UseTls = true;
             tlsOptions.AllowUntrustedCertificates = true;
@@ -211,20 +285,21 @@ namespace MQTTClientModule
         public static async Task SubscribeMQTTTopicsAsync()
         {
             MqttClient = await ConnectAsync("IoTEdgeModule");
-            MqttClient.ApplicationMessageReceived += async (sender, eventArgs) => { await Client1_ApplicationMessageReceived(sender, eventArgs); };
+            MqttClient.ApplicationMessageReceived += async (sender, eventArgs) => { await MessageReceivedAsync(sender, eventArgs); };
 
             foreach(DeviceConfig deviceConfig in Devices)
             {
-                // await MqttClient.SubscribeAsync("/Test1/temperature",MqttQualityOfServiceLevel.ExactlyOnce);
                 await MqttClient.SubscribeAsync(deviceConfig.DataTopic, MqttQualityOfServiceLevel.ExactlyOnce);
                 Console.WriteLine($"Subscribed to Topic: {deviceConfig.DataTopic}");
             }
         }
 
-        public static async Task PublishMQTTMessageAsync(DeviceConfig deviceConfig, string payload)
+        public static async Task PublishMQTTMessageAsync(DeviceConfig deviceConfig, string payload, string alerter)
         {
+            var topic = deviceConfig.FeedbackTopic + "/" + alerter;
+            
             var message = new MqttApplicationMessageBuilder()
-                .WithTopic(deviceConfig.FeedbackTopic)
+                .WithTopic(topic)
                 .WithPayload(payload)
                 .WithExactlyOnceQoS()
                 .WithRetainFlag()
@@ -236,11 +311,11 @@ namespace MQTTClientModule
             }
 
             await MqttClient.PublishAsync(message);
-            Console.WriteLine($"Message '{payload}' sent to {deviceConfig.FeedbackTopic}");
+            Console.WriteLine($"Message '{payload}' sent to {topic}");
         }
 
 
-        private static async Task Client1_ApplicationMessageReceived(object sender, MqttApplicationMessageReceivedEventArgs eventArgs)
+        private static async Task MessageReceivedAsync(object sender, MqttApplicationMessageReceivedEventArgs eventArgs)
         {
             var info = $"Timestamp: {DateTime.Now:O} | Topic: {eventArgs.ApplicationMessage.Topic} | Payload: {Encoding.UTF8.GetString(eventArgs.ApplicationMessage.Payload)} | QoS: {eventArgs.ApplicationMessage.QualityOfServiceLevel}";
             Console.WriteLine($"Message: {info}");
@@ -260,7 +335,7 @@ namespace MQTTClientModule
                     if (messageBody.Machine.Temperature >= Temp_Threshold)
                     {
                         Console.WriteLine("Alert: over Temp_Threshold");
-                        await PublishMQTTMessageAsync(deviceConfig, messageBody.TimeCreated.ToLongTimeString());
+                        await PublishMQTTMessageAsync(deviceConfig, messageBody.TimeCreated.ToLongTimeString(), "MQTTClient");
                     }
 
                     dataBuffer = JsonConvert.SerializeObject(messageBody);
@@ -269,10 +344,10 @@ namespace MQTTClientModule
                 var message = new Message(Encoding.UTF8.GetBytes(dataBuffer));
 
                 //TODO: package sous forme de propriété
-                MqttTransportSettings mqttSetting = new MqttTransportSettings(TransportType.Mqtt_Tcp_Only);
-                ITransportSettings[] settings = { mqttSetting };
-                ModuleClient ioTHubModuleClient = await ModuleClient.CreateFromEnvironmentAsync(settings);
-                await ioTHubModuleClient.OpenAsync();
+                // MqttTransportSettings mqttSetting = new MqttTransportSettings(TransportType.Mqtt_Tcp_Only);
+                // ITransportSettings[] settings = { mqttSetting };
+                // ioTHubModuleClient = await ModuleClient.CreateFromEnvironmentAsync(settings);
+                // await ioTHubModuleClient.OpenAsync();
                 await ioTHubModuleClient.SendEventAsync("output1", message);
             }
             catch(Exception ex)

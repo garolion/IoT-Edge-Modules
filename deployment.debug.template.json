@@ -76,6 +76,16 @@
               "image": "${MODULES.MQTTClientModule.debug}",
               "createOptions": {}
             }
+          },
+          "AlertingModule": {
+            "version": "1.0",
+            "type": "docker",
+            "status": "running",
+            "restartPolicy": "always",
+            "settings": {
+              "image": "${MODULES.AlertingModule.debug}",
+              "createOptions": {}
+            }
           }
         }
       }
@@ -85,7 +95,8 @@
         "schemaVersion": "1.0",
         "routes": {
           "MQTTClientModuleToIoTHub": "FROM /messages/modules/MQTTClientModule/outputs/* INTO $upstream",
-          "sensorToMQTTClientModule": "FROM /messages/modules/tempSensor/outputs/temperatureOutput INTO BrokeredEndpoint(\"/modules/MQTTClientModule/inputs/input1\")"
+          "sensorToMQTTClientModule": "FROM /messages/modules/tempSensor/outputs/temperatureOutput INTO BrokeredEndpoint(\"/modules/MQTTClientModule/inputs/input1\")",
+          "AlertingModuleToIoTHub": "FROM /messages/modules/AlertingModule/outputs/* INTO $upstream"
         },
         "storeAndForwardConfiguration": {
           "timeToLiveSecs": 7200

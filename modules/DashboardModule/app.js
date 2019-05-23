@@ -28,13 +28,14 @@ app.get('/', function(req, res){
         twin.on('properties.desired', function(props) {
 
           let config = {  
-            NBDevices: props.NBDevices
+            NBDevices: props.NBDevices,
+            Graph2_DeviceID : props.Graph2_DeviceID
           };
           let data = JSON.stringify(config); 
           io.emit('config', data);
         });
     }
-});
+  });
 
   res.sendFile(__dirname + '/index.html');
 });

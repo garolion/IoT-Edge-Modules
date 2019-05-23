@@ -1,6 +1,9 @@
 $(function () {
     var socket = io();
+
+    // module twin attributes
     var NBDevices;
+    var Graph2_DeviceID;
 
     var chartAllDevices = Highcharts.chart('chartAllDevices', {
       chart: {
@@ -83,7 +86,7 @@ $(function () {
       }
     });
 
-    var chartDevice1 = Highcharts.chart('chartDevice1', {
+    var chartFocusedDevice = Highcharts.chart('chartFocusedDevice', {
         chart: {
           type: 'spline',
           animation: Highcharts.svg,
@@ -190,37 +193,39 @@ $(function () {
   
     // Called for each new message received from the IoT Edge module (PipeMessage method)
     socket.on('iot message', function(msg){
+        
+      console.log('Message');
         $('#messages').append($('<li>').text(msg));
-
-        try {
-          $('#messages').append($('<li>').text('NB Devices from Twins: ' + NBDevices));
-
-        } catch (err) {
-          $('#messages').append($('<li>').text('Error'));
-        }
  
         var json = $.parseJSON(msg);
         var x = (new Date(json.TimeCreated)).getTime(); // UTC time
 
         var seriesTemperature;
         if (json.Machine.Id == "Dev367") {
-            seriesTemperature = chartAllDevices.series[0];
-
-            chartDevice1.series[0].addPoint([x, json.Machine.Temperature], true, true);
-            chartDevice1.series[1].addPoint([x, json.Machine.Pressure], true, true);
-            chartDevice1.series[2].addPoint([x, json.Ambient.Temperature], true, true);
-            chartDevice1.series[3].addPoint([x, json.Ambient.Humidity], true, true);
+          seriesTemperature = chartAllDevices.series[0];
         } 
         else if (json.Machine.Id == "Dev7854"){
-            seriesTemperature = chartAllDevices.series[1];
+          seriesTemperature = chartAllDevices.series[1];
+        }
+
+        // if (json.Machine.Id == Graph2_DeviceID) {
+        if (json.Machine.Id == "Dev367") {
+          chartFocusedDevice.series[0].addPoint([x, json.Machine.Temperature], true, true);
+          chartFocusedDevice.series[1].addPoint([x, json.Machine.Pressure], true, true);
+          chartFocusedDevice.series[2].addPoint([x, json.Ambient.Temperature], true, true);
+          chartFocusedDevice.series[3].addPoint([x, json.Ambient.Humidity], true, true);
         }
 
         seriesTemperature.addPoint([x, json.Machine.Temperature], true, true);
     });
 
     socket.on('config', function(config){
-
+      
+      console.log('config received');
       var json = $.parseJSON(config);
       NBDevices = json.NBDevices;
+      Graph2_DeviceID = json.Graph2_DeviceID;
+
+      chartFocusedDevice.title = 'Live data for ' + Graph2_DeviceID;
     });
   });

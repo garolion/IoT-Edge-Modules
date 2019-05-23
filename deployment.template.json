@@ -31,7 +31,7 @@
             "status": "running",
             "env": {
               "OptimizeForPerformance": {
-                  "value": "false"
+                "value": "false"
               }
             },
             "restartPolicy": "always",
@@ -104,6 +104,16 @@
                 }
               }
             }
+          },
+          "AlertingModule": {
+            "version": "1.0",
+            "type": "docker",
+            "status": "running",
+            "restartPolicy": "always",
+            "settings": {
+              "image": "${MODULES.AlertingModule}",
+              "createOptions": {}
+            }
           }
         }
       }
@@ -113,6 +123,8 @@
         "schemaVersion": "1.0",
         "routes": {
           "MQTTClientModuleToDashboardModule": "FROM /messages/modules/MQTTClientModule/outputs/output1 INTO BrokeredEndpoint(\"/modules/DashboardModule/inputs/input1\")",
+          "MQTTClientModuleToAlertingModule": "FROM /messages/modules/MQTTClientModule/outputs/output1 INTO BrokeredEndpoint(\"/modules/AlertingModule/inputs/input1\")",
+          "AlertingModuleToMQTTClientModule": "FROM /messages/modules/AlertingModule/outputs/output1 INTO BrokeredEndpoint(\"/modules/MQTTClientModule/inputs/input1\")",
           "DashboardModuleToIoTHub": "FROM /messages/modules/DashboardModule/outputs/* INTO $upstream"
         },
         "storeAndForwardConfiguration": {
@@ -121,26 +133,27 @@
       }
     },
     "MQTTClientModule": {
-      "properties.desired":{
-          "Temp_Threshold":100,
-          "MQTT_BROKER_ADDRESS":"192.168.32.99",
-          "MQTT_BROKER_PORT":4321,
-          "NBDevices":2,
-          "Device1_ID":"Dev367",
-          "Device1_Schema":"DefaultEngine",
-          "Device1_DataTopic":"Dev367/data",
-          "Device1_FeedbackTopic":"Dev367/feedback",
-          "Device2_ID":"Dev7854",
-          "Device2_Schema":"DefaultEngine",
-          "Device2_DataTopic":"Dev7854/data",
-          "Device2_FeedbackTopic":"Dev7854/feedback"
+      "properties.desired": {
+        "Temp_Threshold": 100,
+        "MQTT_BROKER_ADDRESS": "VMUbuntu",
+        "MQTT_BROKER_PORT": 4321,
+        "NBDevices": 2,
+        "Device1_ID": "Dev367",
+        "Device1_Schema": "DefaultEngine",
+        "Device1_DataTopic": "Dev367/data",
+        "Device1_FeedbackTopic": "Dev367/feedback",
+        "Device2_ID": "Dev7854",
+        "Device2_Schema": "DefaultEngine",
+        "Device2_DataTopic": "Dev7854/data",
+        "Device2_FeedbackTopic": "Dev7854/feedback"
       }
     },
     "DashboardModule": {
-      "properties.desired":{
-          "NBDevices":2,
-          "Device1_ID":"Dev367",
-          "Device2_ID":"Dev7854"
+      "properties.desired": {
+        "Graph2_DeviceID": "Dev367",
+        "NBDevices": 2,
+        "Device1_ID": "Dev367",
+        "Device2_ID": "Dev7854"
       }
     }
   }
