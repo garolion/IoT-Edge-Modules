@@ -86,6 +86,31 @@
               "image": "${MODULES.AlertingModule.debug}",
               "createOptions": {}
             }
+          },
+          "ChildDeviceManagerModule": {
+            "version": "1.0",
+            "type": "docker",
+            "status": "running",
+            "restartPolicy": "always",
+            "settings": {
+              "image": "${MODULES.ChildDeviceManagerModule.debug}",
+              "createOptions": {}
+            }
+          },
+          "TestASA": {
+            "version": "1.0",
+            "type": "docker",
+            "status": "running",
+            "restartPolicy": "always",
+            "settings": {
+              "image": "mcr.microsoft.com/azure-stream-analytics/azureiotedge:1.0.2",
+              "createOptions": {}
+            },
+            "env": {
+              "PlanId": {
+                "value": "stream-analytics-on-iot-edge"
+              }
+            }
           }
         }
       }
@@ -96,11 +121,21 @@
         "routes": {
           "MQTTClientModuleToIoTHub": "FROM /messages/modules/MQTTClientModule/outputs/* INTO $upstream",
           "sensorToMQTTClientModule": "FROM /messages/modules/tempSensor/outputs/temperatureOutput INTO BrokeredEndpoint(\"/modules/MQTTClientModule/inputs/input1\")",
-          "AlertingModuleToIoTHub": "FROM /messages/modules/AlertingModule/outputs/* INTO $upstream"
+          "AlertingModuleToIoTHub": "FROM /messages/modules/AlertingModule/outputs/* INTO $upstream",
+          "ChildDeviceManagerModuleToIoTHub": "FROM /messages/modules/ChildDeviceManagerModule/outputs/* INTO $upstream",
+          "TestASAToIoTHub": "FROM /messages/modules/TestASA/outputs/* INTO $upstream"
         },
         "storeAndForwardConfiguration": {
           "timeToLiveSecs": 7200
         }
+      }
+    },
+    "TestASA": {
+      "properties.desired": {
+        "ASAJobInfo": "https://iotedgediag962.blob.core.windows.net/asa-temp-alerting/ASAEdgeJobs/33913792-678d-441c-b770-aaf9da781074/c9bee834-78fa-4f36-b53a-fd2a9a9fcb83/ASAEdgeJobDefinition.zip?sv=2018-03-28&sr=b&sig=tz02saJo3i%2B4LUaa0b1Fq76Ax2WRW3mZI%2BmzYjxoIZA%3D&st=2019-06-07T16%3A01%3A54Z&se=2022-06-07T16%3A11%3A54Z&sp=r",
+        "ASAJobResourceId": "/subscriptions/32f0f627-cdaf-40d6-9265-72ce229a0ff9/resourceGroups/IoTEdge/providers/Microsoft.StreamAnalytics/streamingjobs/MinuteAlertingModule",
+        "ASAJobEtag": "303b0b2e-e2dd-4c52-ac9f-7c967067e87b",
+        "PublishTimestamp": "6/7/2019 4:11:54 PM"
       }
     }
   }

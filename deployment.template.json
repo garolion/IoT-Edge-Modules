@@ -114,6 +114,31 @@
               "image": "${MODULES.AlertingModule}",
               "createOptions": {}
             }
+          },
+          "MinuteAlertingModule": {
+            "settings": {
+              "image": "mcr.microsoft.com/azure-stream-analytics/azureiotedge:1.0.2",
+              "createOptions": ""
+            },
+            "type": "docker",
+            "version": "1.0",
+            "env": {
+              "PlanId": {
+                "value": "stream-analytics-on-iot-edge"
+              }
+            },
+            "status": "running",
+            "restartPolicy": "always"
+          },
+          "ChildDeviceManagerModule": {
+            "version": "1.0",
+            "type": "docker",
+            "status": "running",
+            "restartPolicy": "always",
+            "settings": {
+              "image": "${MODULES.ChildDeviceManagerModule}",
+              "createOptions": {}
+            }
           }
         }
       }
@@ -124,7 +149,10 @@
         "routes": {
           "MQTTClientModuleToDashboardModule": "FROM /messages/modules/MQTTClientModule/outputs/output1 INTO BrokeredEndpoint(\"/modules/DashboardModule/inputs/input1\")",
           "MQTTClientModuleToAlertingModule": "FROM /messages/modules/MQTTClientModule/outputs/output1 INTO BrokeredEndpoint(\"/modules/AlertingModule/inputs/input1\")",
-          "AlertingModuleToMQTTClientModule": "FROM /messages/modules/AlertingModule/outputs/output1 INTO BrokeredEndpoint(\"/modules/MQTTClientModule/inputs/input1\")",
+          "AlertingModuleToMQTTClientModule": "FROM /messages/modules/AlertingModule/outputs/output1 INTO BrokeredEndpoint(\"/modules/MQTTClientModule/inputs/inputFunction\")",
+          "MQTTClientModuleToAsa": "FROM /messages/modules/MQTTClientModule/outputs/output1 INTO BrokeredEndpoint(\"/modules/MinuteAlertingModule/inputs/temperature\")",
+          "MQTTClientModuleToChildDeviceManagerModule": "FROM /messages/modules/MQTTClientModule/outputs/output1 INTO BrokeredEndpoint(\"/modules/ChildDeviceManagerModule/inputs/input1\")",
+          "AsaToMQTTClientModule": "FROM /messages/modules/MinuteAlertingModule/* INTO BrokeredEndpoint(\"/modules/MQTTClientModule/inputs/inputASA\")",
           "DashboardModuleToIoTHub": "FROM /messages/modules/DashboardModule/outputs/* INTO $upstream"
         },
         "storeAndForwardConfiguration": {
@@ -154,6 +182,19 @@
         "NBDevices": 2,
         "Device1_ID": "Dev367",
         "Device2_ID": "Dev7854"
+      }
+    },
+    "MinuteAlertingModule": {
+      "properties.desired": {
+        "ASAJobInfo": "https://iotedgediag962.blob.core.windows.net/asa-temp-alerting/ASAEdgeJobs/33913792-678d-441c-b770-aaf9da781074/2ae661f3-b9e6-4279-96ef-ca372b8d6cce/ASAEdgeJobDefinition.zip?sv=2018-03-28&sr=b&sig=3%2FrGq1NvafdQjztOEGpW9BdWWK1tcX%2B7OgKMaiO3WIU%3D&st=2019-06-04T14%3A52%3A12Z&se=2022-06-04T15%3A02%3A12Z&sp=r",
+        "ASAJobResourceId": "/subscriptions/32f0f627-cdaf-40d6-9265-72ce229a0ff9/resourceGroups/IoTEdge/providers/Microsoft.StreamAnalytics/streamingjobs/MinuteAlertingModule",
+        "ASAJobEtag": "303b0b2e-e2dd-4c52-ac9f-7c967067e87b",
+        "PublishTimestamp": "6/4/2019 3:02:12 PM"
+      }
+    },
+    "ChildDeviceManagerModule": {
+      "properties.desired": {
+        "TimeOut_mns": "1"
       }
     }
   }

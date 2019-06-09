@@ -12,8 +12,8 @@ namespace MQTTClientModule
     using Newtonsoft.Json;
     using Microsoft.Extensions.Logging;
     using Microsoft.Azure.Devices;
-    using Microsoft.Azure.Devices.Shared;
     using Microsoft.Azure.Devices.Client;
+    using Microsoft.Azure.Devices.Shared;
     using Newtonsoft.Json.Linq;
     using System.Security.Cryptography.X509Certificates;
     using System.Runtime.InteropServices;
@@ -62,7 +62,7 @@ namespace MQTTClientModule
         /// </summary>
         static async Task Init()
         {
-            MqttTransportSettings mqttSetting = new MqttTransportSettings(TransportType.Mqtt_Tcp_Only);
+            MqttTransportSettings mqttSetting = new MqttTransportSettings(Microsoft.Azure.Devices.Client.TransportType.Mqtt_Tcp_Only);
             ITransportSettings[] settings = { mqttSetting };
 
             Console.WriteLine("Initializing Module");
@@ -83,7 +83,8 @@ namespace MQTTClientModule
             await ioTHubModuleClient.SetMethodHandlerAsync("Alert", AlertAsync, ioTHubModuleClient);
 
             // Register a callback for messages that are received by the module.
-            await ioTHubModuleClient.SetInputMessageHandlerAsync("input1", ManageAlertsAsync, ioTHubModuleClient);
+            await ioTHubModuleClient.SetInputMessageHandlerAsync("inputFunction", ManageFunctionAlertsAsync, ioTHubModuleClient);
+            await ioTHubModuleClient.SetInputMessageHandlerAsync("inputASA", ManageASAAlertsAsync, ioTHubModuleClient);
 
             Console.WriteLine("Module Initialized");
         }
@@ -212,24 +213,20 @@ namespace MQTTClientModule
             } 
         }
 
-        static async Task<MessageResponse> ManageAlertsAsync(Message message, object userContext)
+        static async Task<MessageResponse> ManageFunctionAlertsAsync(Microsoft.Azure.Devices.Client.Message message, object userContext)
         {
+            ModuleClient moduleClient = (ModuleClient)userContext;
+            byte[] messageBytes = message.GetBytes();
+            string messageString = Encoding.UTF8.GetString(messageBytes);
+            
+            Console.WriteLine($"Alert from Alerting function received: [{messageString}]");
+
             try
             {
-                Console.WriteLine($"in ManageAlertsAsync");
-                
-                ModuleClient moduleClient = (ModuleClient)userContext;
-                var messageBytes = message.GetBytes();
-                var messageString = Encoding.UTF8.GetString(messageBytes);
-                Console.WriteLine($"Message received from Alerting module: [{messageString}]");
-
-                //send MQTT message
-                string deviceId = message.Properties["DeviceId"];
-                DeviceConfig deviceConfig = Devices.Find(d => d.ID.Equals(deviceId));
-
+                var deviceId = message.Properties["DeviceId"];
                 var messageBody = JsonConvert.DeserializeObject<MessageBody>(messageString);
+                DeviceConfig deviceConfig = Devices.Find(d => d.ID.Equals(deviceId));
                 await PublishMQTTMessageAsync(deviceConfig, messageBody.TimeCreated.ToLongTimeString(), "AlertingModule");
-
                 return MessageResponse.Completed;
             }
             catch (AggregateException ex)
@@ -240,7 +237,6 @@ namespace MQTTClientModule
                     Console.WriteLine("Error in sample: {0}", exception);
                 }
                 // Indicate that the message treatment is not completed.
-                var moduleClient = (ModuleClient)userContext;
                 return MessageResponse.Abandoned;
             }
             catch (Exception ex)
@@ -248,7 +244,42 @@ namespace MQTTClientModule
                 Console.WriteLine();
                 Console.WriteLine("Error in sample: {0}", ex.Message);
                 // Indicate that the message treatment is not completed.
-                ModuleClient moduleClient = (ModuleClient)userContext;
+                return MessageResponse.Abandoned;
+            }
+        }
+
+        static async Task<MessageResponse> ManageASAAlertsAsync(Microsoft.Azure.Devices.Client.Message message, object userContext)
+        {
+            ModuleClient moduleClient = (ModuleClient)userContext;
+            byte[] messageBytes = message.GetBytes();
+            string messageString = Encoding.UTF8.GetString(messageBytes);
+            
+            Console.WriteLine($"Alert from ASA received: [{messageString}]");
+
+            try
+            {
+                var messageBody = JsonConvert.DeserializeObject<ASAAlert>(messageString);
+                var deviceId = messageBody.DeviceId;
+                DeviceConfig deviceConfig = Devices.Find(d => d.ID.Equals(deviceId));
+
+                await PublishMQTTMessageAsync(deviceConfig, messageBody.Command.ToString(), "AlertingASA");
+                return MessageResponse.Completed;
+            }
+            catch (AggregateException ex)
+            {
+                foreach (Exception exception in ex.InnerExceptions)
+                {
+                    Console.WriteLine();
+                    Console.WriteLine("Error in sample: {0}", exception);
+                }
+                // Indicate that the message treatment is not completed.
+                return MessageResponse.Abandoned;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine();
+                Console.WriteLine("Error in sample: {0}", ex.Message);
+                // Indicate that the message treatment is not completed.
                 return MessageResponse.Abandoned;
             }
         }
@@ -341,7 +372,7 @@ namespace MQTTClientModule
                     dataBuffer = JsonConvert.SerializeObject(messageBody);
                 }
 
-                var message = new Message(Encoding.UTF8.GetBytes(dataBuffer));
+                var message = new Microsoft.Azure.Devices.Client.Message(Encoding.UTF8.GetBytes(dataBuffer));
 
                 //TODO: package sous forme de propriété
                 // MqttTransportSettings mqttSetting = new MqttTransportSettings(TransportType.Mqtt_Tcp_Only);
@@ -355,6 +386,21 @@ namespace MQTTClientModule
                 Console.WriteLine(ex.Message);
             }
         }
+    }
+
+    internal class ASAAlert
+    {
+        [JsonProperty("command")]
+        public ControlCommandEnum Command { get; set; }
+
+        [JsonProperty("deviceId")]
+        public string DeviceId { get; set; }
+    }
+
+    public enum ControlCommandEnum
+    {
+        Reset = 0,
+        HighTemperatureAlert = 1 // from the ASA Module
     }
 
     class MessageBody
