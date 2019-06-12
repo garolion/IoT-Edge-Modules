@@ -86,7 +86,7 @@ namespace MQTTClientModule
             await ioTHubModuleClient.SetInputMessageHandlerAsync("inputFunction", ManageFunctionAlertsAsync, ioTHubModuleClient);
             await ioTHubModuleClient.SetInputMessageHandlerAsync("inputASA", ManageASAAlertsAsync, ioTHubModuleClient);
 
-            Console.WriteLine("Module Initialized");
+             Console.WriteLine("Module Initialized");
         }
 
         static Task OnDesiredPropertiesUpdate(TwinCollection desiredProperties, object userContext)

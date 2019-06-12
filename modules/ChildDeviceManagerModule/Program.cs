@@ -24,7 +24,9 @@ namespace ChildDeviceManagerModule
         static int counter;
 
         static int timeOut_mns { get; set; } = 1;
+        private static Dictionary<string,Device> devices = new Dictionary<string, Device>();
         private static Dictionary<string,DeviceClient> connections = new Dictionary<string, DeviceClient>();
+        private static Dictionary<string,Timer> timers = new Dictionary<string, Timer>();
 
         static void Main(string[] args)
         {
@@ -81,11 +83,8 @@ namespace ChildDeviceManagerModule
                     {
                         Console.WriteLine("DeviceId:" + twin.DeviceId + " Status:" + twin.Status.ToString());
                         var device = await registryManager.GetDeviceAsync(twin.DeviceId);
+                        devices.Add(device.Id, device);
 
-                        var auth = new DeviceAuthenticationWithRegistrySymmetricKey(device.Id, device.Authentication.SymmetricKey.PrimaryKey);
-                        var deviceClient = DeviceClient.Create(iotHubName, auth);
-
-                        connections.Add(device.Id, deviceClient);
                         Console.WriteLine($"Device {twin.DeviceId} registered.");
                     }
             }
@@ -132,12 +131,41 @@ namespace ChildDeviceManagerModule
             var deviceClient = connections[deviceID];
             await deviceClient.CloseAsync();
 
+            timers.Remove(deviceID);
+            connections.Remove(deviceID);
+
             Console.WriteLine($"Device {deviceID} disconnected.");
+        }
+
+
+        static async Task ConnectDeviceAsync(Device device)
+        {
+            var auth = new DeviceAuthenticationWithRegistrySymmetricKey(device.Id, device.Authentication.SymmetricKey.PrimaryKey);
+            var deviceClient = DeviceClient.Create(iotHubName, auth);
+            await deviceClient.OpenAsync();
+            connections.Add(device.Id, deviceClient);
+
+            await deviceClient.SetDesiredPropertyUpdateCallbackAsync(OnDeviceDesiredPropertiesUpdate, device.Id);
+
+            // Because IoT Hub don't support offline updates we synchronize properties
+            var twin = await deviceClient.GetTwinAsync();
+            await OnDeviceDesiredPropertiesUpdate(twin.Properties.Desired, device.Id);
+        }
+
+
+        static Task OnDeviceDesiredPropertiesUpdate(TwinCollection desiredProperties, object deviceContext)
+        {
+            string deviceId = deviceContext.ToString();
+            
+            Console.WriteLine($"Desired properties have been updated for device '{deviceId}'");
+            Console.WriteLine(JsonConvert.SerializeObject(desiredProperties));
+
+            return Task.CompletedTask;
         }
 
         /// <summary>
         /// This method is called whenever the module is sent a message from the EdgeHub. 
-        /// It just pipe the messages without any change.
+        /// It just p();ipe the messages without any change.
         /// It prints all the incoming messages.
         /// </summary>
         static async Task<MessageResponse> MessageReceivedAsync(Microsoft.Azure.Devices.Client.Message message, object userContext)
@@ -150,18 +178,21 @@ namespace ChildDeviceManagerModule
 
             var messageBody = JsonConvert.DeserializeObject<MessageBody>(messageString);
 
-            var registryManager = RegistryManager.CreateFromConnectionString(connectionString);
-            var device = await registryManager.GetDeviceAsync(messageBody.Machine.Id);
-
-            if (device?.ConnectionState == DeviceConnectionState.Disconnected)
+            if (!timers.ContainsKey(messageBody.Machine.Id))
             {
+                Console.WriteLine($"Connecting Device '{messageBody.Machine.Id}'...");
+                await ConnectDeviceAsync(devices[messageBody.Machine.Id]);
                 await ReportPropertyAsync(messageBody.Machine.Id, "LastConnection", DateTime.Now.ToString());
-                
-                var deviceClient = connections[messageBody.Machine.Id];
-                await deviceClient.OpenAsync();
-                var timer = new Timer(x => TimeOut (x, messageBody.Machine.Id).Wait(), null, timeOut_mns * 60000, 0);
-                Console.WriteLine($"Device {messageBody.Machine.Id} connected.");
             }
+            
+            if(timers.ContainsKey(messageBody.Machine.Id))
+            {
+                timers[messageBody.Machine.Id].Change(timeOut_mns * 60000, 0);
+            }
+            else
+            {
+                timers.Add(messageBody.Machine.Id, new Timer(x => TimeOut (x, messageBody.Machine.Id).Wait(), null, timeOut_mns * 60000, 0));
+            }                
             
             return MessageResponse.Completed;
         }
@@ -170,20 +201,11 @@ namespace ChildDeviceManagerModule
         {
             try
             {
-                var registryManager = RegistryManager.CreateFromConnectionString(connectionString);
-                var device = await registryManager.GetDeviceAsync(deviceId);
-                var deviceConnectionString = $"HostName={iotHubName};DeviceId={deviceId};SharedAccessKey={device.Authentication.SymmetricKey.PrimaryKey}";
-                
-                var client = DeviceClient.CreateFromConnectionString(deviceConnectionString, Microsoft.Azure.Devices.Client.TransportType.Mqtt);
-
-                // TwinCollection reportedProperties, michelin;
                 var reportedProperties = new TwinCollection();
-                var michelin = new TwinCollection();
-                michelin[propertyName] = propertyValue;
-                reportedProperties["Michelin"] = michelin;
-                await client.UpdateReportedPropertiesAsync(reportedProperties);
-
-                client.Dispose();
+                var customProps = new TwinCollection();
+                customProps[propertyName] = propertyValue;
+                reportedProperties["CustomProps"] = customProps;
+                await connections[deviceId].UpdateReportedPropertiesAsync(reportedProperties);
             }
             catch (Exception ex)
             {
