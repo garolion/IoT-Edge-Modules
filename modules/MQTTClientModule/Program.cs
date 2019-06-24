@@ -82,11 +82,14 @@ namespace MQTTClientModule
             // Attach a callback for direct Method 'Alert'
             await ioTHubModuleClient.SetMethodHandlerAsync("Alert", AlertAsync, ioTHubModuleClient);
 
+            // Attach a callback for direct Method 'NotifyTimeOut'
+            await ioTHubModuleClient.SetMethodHandlerAsync("NotifyTimeOut", NotifyTimeOutAsync, ioTHubModuleClient);
+
             // Register a callback for messages that are received by the module.
             await ioTHubModuleClient.SetInputMessageHandlerAsync("inputFunction", ManageFunctionAlertsAsync, ioTHubModuleClient);
             await ioTHubModuleClient.SetInputMessageHandlerAsync("inputASA", ManageASAAlertsAsync, ioTHubModuleClient);
 
-             Console.WriteLine("Module Initialized");
+            Console.WriteLine("Module Initialized");
         }
 
         static Task OnDesiredPropertiesUpdate(TwinCollection desiredProperties, object userContext)
@@ -201,6 +204,25 @@ namespace MQTTClientModule
                 var messageBody = new MessageBody();
                 DeviceConfig deviceConfig = Devices.Find(d => d.ID.Equals("Dev367"));
                 await PublishMQTTMessageAsync(deviceConfig, messageBody.TimeCreated.ToLongTimeString(), "AlertingCloud");
+
+                var methodResponse = new MethodResponse(Encoding.UTF8.GetBytes("{\"status\": \"ok\"}"), 200);
+                return await Task.FromResult(methodResponse);
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                Console.WriteLine(ex.StackTrace);
+                return await Task.FromResult(new MethodResponse(500));
+            } 
+        }
+
+        public static async Task<MethodResponse> NotifyTimeOutAsync(MethodRequest methodRequest, object moduleClient)
+        {
+            try 
+            {
+                Console.WriteLine("In NotifyTimeOutAsync");
+                var data = Encoding.UTF8.GetString(methodRequest.Data);
+                Console.WriteLine("Received data: " + data.ToString());
 
                 var methodResponse = new MethodResponse(Encoding.UTF8.GetBytes("{\"status\": \"ok\"}"), 200);
                 return await Task.FromResult(methodResponse);

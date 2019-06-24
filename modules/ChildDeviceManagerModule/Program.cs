@@ -103,6 +103,8 @@ namespace ChildDeviceManagerModule
                     {
                         timeOut_mns = timeOut;
                         Console.WriteLine($"value updated for Property 'TimeOut_mns': {timeOut_mns}");
+
+                        CallDirectMethodAsync().Wait();
                     }
                     else
                     {
@@ -125,6 +127,39 @@ namespace ChildDeviceManagerModule
             }
             return Task.CompletedTask;
         }
+
+        static async Task CallDirectMethodAsync()
+        {
+            try
+            {
+                var varEnvs = System.Environment.GetEnvironmentVariables();
+                foreach(System.Collections.DictionaryEntry varEnv in varEnvs)
+                {
+                    Console.WriteLine($"Variable: key '{varEnv.Key}', value '{varEnv.Value}'");
+                }
+                
+                var deviceId = System.Environment.GetEnvironmentVariable("IOTEDGE_DEVICEID");
+                Console.WriteLine($"deviceId: {deviceId}");
+
+                // MethodRequest request = new MethodRequest("MethodA", Encoding.UTF8.GetBytes("{ \"Message\": \"Hello\" }"));
+                string message = "{ \"TimeOut_mns\": " + timeOut_mns.ToString() + " }";
+                MethodRequest request = new MethodRequest("NotifyTimeOut", Encoding.UTF8.GetBytes(message));
+
+                MqttTransportSettings mqttSetting = new MqttTransportSettings(Microsoft.Azure.Devices.Client.TransportType.Mqtt_Tcp_Only);
+                ITransportSettings[] settings = { mqttSetting };
+                ModuleClient ioTHubModuleClient = await ModuleClient.CreateFromEnvironmentAsync(settings);
+                await ioTHubModuleClient.OpenAsync();
+
+                var response = await ioTHubModuleClient.InvokeMethodAsync(deviceId, "MQTTClientModule", request).ConfigureAwait(false);
+                Console.WriteLine($"Received response with status {response.Status}");
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine();
+                Console.WriteLine($"Error : {ex.Message}");
+            }
+        }
+
 
         static async Task TimeOut(object stateInfo, string deviceID)
         {
